@@ -9,8 +9,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
-
-	"seedrcc/tui/styles" // Import the styles package with full module path
 )
 
 const (
@@ -68,7 +66,7 @@ func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 		case key.Matches(msg, d.keys.choose): // Use d.keys for choose
 			// Handle the choose action. In the main model, this means navigating into a folder or performing an action.
 			// Here, we just set a status message, similar to the list-fancy example.
-			return m.NewStatusMessage(styles.StatusMessageStyle("You chose " + title))
+			return m.NewStatusMessage(StatusMessageStyle("You chose " + title))
 
 		case key.Matches(msg, d.keys.remove): // Use d.keys for remove
 			// Handle the remove action. This is for deleting an item from the list.
@@ -77,7 +75,7 @@ func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 			if len(m.Items()) == 0 {
 				d.keys.remove.SetEnabled(false) // Disable remove key if list is empty
 			}
-			return m.NewStatusMessage(styles.StatusMessageStyle("Deleted " + title))
+			return m.NewStatusMessage(StatusMessageStyle("Deleted " + title))
 		}
 	}
 	return nil
@@ -89,7 +87,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 		matchedRunes []int
 	)
 
-	i, ok := listItem.(item)
+	i, ok := listItem.(item);
 	if !ok {
 		return
 	}
@@ -138,7 +136,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	if isFiltered && index < len(m.VisibleItems()) {
 		matchedRunes = m.MatchesForItem(index)
 		unmatched := currentTitleStyle.Inline(true)
-		matched := unmatched.Inherit(d.styles.FilterMatch)
+		matched := unmatched.Inherit(FilterMatch)
 		title = lipgloss.StyleRunes(title, matchedRunes, matched, unmatched)
 	}
 

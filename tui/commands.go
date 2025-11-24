@@ -210,7 +210,7 @@ func cmdOpenMPV(client *seedrcc.Client, fileID string) tea.Cmd {
 	}
 }
 
-func cmdBatchDownloadFiles(client *seedrcc.Client, files []delegate.item) tea.Cmd {
+func cmdBatchDownloadFiles(client *seedrcc.Client, files []item) tea.Cmd {
 	return func() tea.Msg {
 		msgChan := make(chan tea.Msg)
 

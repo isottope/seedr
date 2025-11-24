@@ -13,7 +13,7 @@ import (
 
 	"seedrcc/cmd" // For DebugLog
 	"seedrcc/pkg/seedrcc"
-	"seedrcc/tui/styles" // Import the styles package with full module path
+
 )
 
 // appState describes the current state of the application.
@@ -55,7 +55,7 @@ func newModel(client *seedrcc.Client) model {
 	l.SetShowStatusBar(true)
 	l.SetFilteringEnabled(true)
 	l.KeyMap = DefaultKeyMap.KeyMap // Assign the embedded list.KeyMap from keys.go
-	l.Styles.Title = styles.TitleStyle // Use TitleStyle from styles.go
+	l.Styles.Title = TitleStyle // Use TitleStyle from styles.go
 	l.AdditionalFullHelpKeys = func() []key.Binding {
 		return []key.Binding{
 			DefaultKeyMap.Download,
@@ -97,7 +97,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.list.SetWidth(msg.Width)
 		// Calculate the height considering the appStyle padding
-		h, v := styles.AppStyle.GetFrameSize() // Use AppStyle from styles.go
+		h, v := AppStyle.GetFrameSize() // Use AppStyle from styles.go
 		m.list.SetSize(msg.Width-h, msg.Height-v)
 		return m, nil
 
@@ -406,7 +406,7 @@ func (m model) View() string {
 	default:
 		viewString = "Unknown state."
 	}
-	return styles.AppStyle.Render(viewString) // Wrap all views with AppStyle
+	return AppStyle.Render(viewString) // Wrap all views with AppStyle
 }
 
 // RunTUI is the exported function to start the TUI.
