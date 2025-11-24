@@ -13,10 +13,6 @@ import (
 
 )
 
-
-
-
-
 // getSeedrSettings prints formatted account settings.
 func getSeedrSettings(data *seedrcc.UserSettings) {
 	accountInfo := data.Account
@@ -33,18 +29,6 @@ func getSeedrSettings(data *seedrcc.UserSettings) {
 	fmt.Printf("Bandwidth Used: %s\n", bandwidthUsed)
 	fmt.Printf("Country: %s\n", data.Country)
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 func main() {
 	cmd.Execute()

@@ -1,0 +1,192 @@
+// FromDeviceCode creates a new client by authorizing with a device code.
+// It implements the polling mechanism required for the OAuth 2.0 Device Authorization Grant.
+func FromDeviceCode(ctx context.Context, deviceCode string, opts ...ClientOption) (*Client, error) {
+	tempClient := NewClient(nil, opts...) // Create a temporary client for polling
+	defer func() {
+		if tempClient.managesClientLifecycle {
+			tempClient.Close()
+		}
+	}()
+
+	interval := 5 * time.Second // Polling interval
+	timeout := 10 * time.Minute // Overall timeout for the polling process
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-timer.C:
+			return nil, NewAuthenticationError("Device authorization timed out.", 0, nil)
+		case <-time.After(interval):
+			// Poll the TokenURL
+			payload := map[string]string{
+				"grant_type":  "urn:ietf:params:oauth:grant-type:device_code",
+				"device_code": deviceCode,
+				"client_id": DeviceClientID, // Include client_id as per OAuth2 spec for token endpoint
+			}
+
+			resp, err := tempClient.makeHTTPRequest(ctx, http.MethodPost, TokenURL, nil, payload, nil)
+
+			if err != nil {
+				if apiErr, ok := err.(*APIError); ok {
+					// Handle specific errors from the token endpoint during polling
+					// https://datatracker.ietf.org/doc/html/rfc8628#section-3.5
+					switch apiErr.ErrorType { // Assuming apiErr.ErrorType contains the OAuth2 error code
+					case "authorization_pending":
+						// User hasn't authorized yet, continue polling
+						continue
+					case "slow_down":
+						// Server requested slower polling, adjust interval (e.g., double it)
+						interval += 5 * time.Second 
+						if interval > timeout { // Don't exceed overall timeout
+							interval = timeout
+						}
+						continue
+					case "access_denied":
+						return nil, NewAuthenticationError("Device authorization denied by user.", apiErr.StatusCode, apiErr.Response)
+					case "expired_token": // Should be 'expired_device_code' as per spec, but using 'expired_token' for Seedr's potential error
+						return nil, NewAuthenticationError("Device code expired.", apiErr.StatusCode, apiErr.Response)
+					default:
+						return nil, NewAuthenticationError(fmt.Sprintf("Failed to get tokens: %v", apiErr.Error()), apiErr.StatusCode, apiErr.Response)
+					}
+				}
+				// Other network or HTTP errors during polling
+				return nil, fmt.Errorf("error during token polling: %w", err)
+			}
+
+			// If we reach here, we likely have a successful response with tokens
+			accessToken, ok := resp["access_token"].(string)
+			if !ok || accessToken == "" {
+				return nil, NewAuthenticationError("Token exchange failed: no access token in response.", 0, nil)
+			}
+
+			var refreshToken *string
+			if rt, ok := resp["refresh_token"].(string); ok {
+				refreshToken = &rt
+			}
+
+			token := NewToken(accessToken, refreshToken, nil) // DeviceCode should not be persisted
+
+			client := NewClient(token, opts...)
+			// Reapply onTokenRefresh callback if it was passed in opts, as initializeClient is no longer used for this path.
+			// It's crucial to set the callback for proper token persistence after refresh.
+			for _, opt := range opts {
+				opt(client)
+			}
+			return client, nil
+		}
+	}
+}
+
+// refreshAccessToken refreshes the access token using the refresh token.
+func (c *Client) refreshAccessToken(ctx context.Context) error {
+	refreshToken := c.token.GetRefreshToken()
+
+	if refreshToken == nil || *refreshToken == "" {
+		return NewAuthenticationError("Session expired. No refresh token available.", 0, nil)
+	}
+
+	payload := PrepareRefreshTokenPayload(*refreshToken)
+	response, err := c.makeHTTPRequest(ctx, http.MethodPost, TokenURL, nil, payload, nil)
+
+	if err != nil {
+		return NewAuthenticationError(fmt.Sprintf("Failed to refresh token: %v", err.Error()), 0, nil)
+	}
+
+	accessToken, ok := response["access_token"].(string)
+	if !ok || accessToken == "" {
+		return nil, NewAuthenticationError("Token refresh failed. The response did not contain a new access token.", 0, nil)
+	}
+
+	// Update the token in a thread-safe manner
+	// Seedr API might not always return a new refresh token, so keep the old one if not provided.
+	var newRefreshToken *string
+	if rt, ok := response["refresh_token"].(string); ok {
+		newRefreshToken = &rt
+	} else {
+		newRefreshToken = refreshToken // Keep existing refresh token
+	}
+	c.token.Update(accessToken, newRefreshToken)
+
+	if c.onTokenRefresh != nil {
+		c.onTokenRefresh(c.token)
+	}
+
+	return nil
+}
+
+// initializeClient is a factory helper that orchestrates the authentication process and constructs the client.
+// This function will now primarily be used by FromPassword and FromRefreshToken, as FromDeviceCode
+// will handle its own token acquisition due to polling requirements.
+func initializeClient(
+	ctx context.Context,
+	authCallable func(*http.Client) (map[string]interface{}, error),
+	onTokenRefresh OnTokenRefreshCallback,
+	opts ...ClientOption,
+) (*Client, error) {
+	tempClient := NewClient(nil, opts...) // Create a temporary client to perform initial auth
+	defer func() {
+		// Only close if it was internally created and auth failed
+		if tempClient.managesClientLifecycle {
+			tempClient.Close()
+		}
+	}()
+
+	response_data, err := authCallable(tempClient.httpClient)
+	if err != nil {
+		return nil, err
+	}
+	
+	var refreshToken *string
+	if rt, ok := response_data["refresh_token"].(string); ok {
+		refreshToken = &rt
+	}
+
+	token := NewToken(
+		response_data["access_token"].(string),
+		refreshToken,
+		nil, // Device code is not part of persistent token state here.
+	)
+
+	// Create the actual client with the obtained token
+	client := NewClient(token, opts...)
+	client.onTokenRefresh = onTokenRefresh // Ensure the callback is set on the final client
+	return client, nil
+}
+
+// FromPassword creates a new client by authenticating with a username and password.
+func FromPassword(ctx context.Context, username, password string, opts ...ClientOption) (*Client, error) {
+	authCallable := func(httpClient *http.Client) (map[string]interface{}, error) {
+		payload := PreparePasswordPayload(username, password)
+		resp, err := (&Client{httpClient: httpClient}).makeHTTPRequest(ctx, http.MethodPost, TokenURL, nil, payload, nil)
+		if err != nil {
+			if apiErr, ok := err.(*APIError); ok {
+				return nil, NewAuthenticationError("Authentication failed", apiErr.StatusCode, apiErr.Response)
+			}
+			return nil, err
+		}
+		return resp, nil
+	}
+
+	return initializeClient(ctx, authCallable, nil, opts...)
+}
+
+// FromRefreshToken creates a new client by using an existing refresh token.
+func FromRefreshToken(ctx context.Context, refreshToken string, opts ...ClientOption) (*Client, error) {
+	authCallable := func(httpClient *http.Client) (map[string]interface{}, error) {
+		payload := PrepareRefreshTokenPayload(refreshToken)
+		resp, err := (&Client{httpClient: httpClient}).makeHTTPRequest(ctx, http.MethodPost, TokenURL, nil, payload, nil)
+		if err != nil {
+			if apiErr, ok := err.(*APIError); ok {
+				return nil, NewAuthenticationError("Failed to refresh token", apiErr.StatusCode, apiErr.Response)
+			}
+			return nil, err
+		}
+		return resp, nil
+	}
+
+	return initializeClient(ctx, authCallable, nil, opts...)
+}

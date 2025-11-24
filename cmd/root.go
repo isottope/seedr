@@ -15,9 +15,9 @@ var (
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
-	Use:   "seedr_cli",
+	Use:   "seedrcc",
 	Short: "A CLI tool for Seedr.cc",
-	Long: `seedr_cli is a command line interface for interacting with Seedr.cc,
+	Long: `seedrcc is a command line interface for interacting with Seedr.cc,
 a cloud-based torrent downloader.
 
 It allows you to add torrents, list your files, get download links, and more.`,
@@ -65,5 +65,3 @@ func DebugLog(format string, a ...interface{}) {
 
 // Function to start TUI. This function will be defined in cli.go and passed to cmd.
 var StartTUI func()
-
-

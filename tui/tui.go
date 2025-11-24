@@ -9,7 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
+
 
 	"seedrcc/cmd" // For DebugLog
 	"seedrcc/pkg/seedrcc"
@@ -313,7 +313,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateReady
 		m.list.SetItems(msg.items)
 		// Set title to current path, which is updated on enter/backspace
-		m.list.Title = "Seedr Contents: " + m.currentFolderPath
+		m.list.Title = m.currentFolderPath
 		m.contentCache[m.currentFolderID] = msg // Cache the fetched contents
 		// If len(msg.items) == 0, emptyContentsMsg would have been returned instead
 		return m, nil
@@ -394,7 +394,7 @@ func (m model) View() string {
 	var viewString string
 	switch m.state {
 	case stateLoading:
-		viewString = fmt.Sprintf("%s Loading contents...", m.spinner.View())
+		viewString = fmt.Sprintf("%s Loading Contents...", m.spinner.View())
 	case stateDownloading:
 		viewString = fmt.Sprintf("%s Downloading... %s", m.spinner.View(), m.progress.View())
 	case stateError:
@@ -402,9 +402,9 @@ func (m model) View() string {
 	case stateReady:
 		viewString = m.list.View() // Rely on list.Model's View() for all content
 	case stateEmpty:
-		viewString = "No contents found in this folder.\n\nPress 'r' to retry, 'backspace' to go back, 'q' to quit."
+		viewString = "No contents Found in this Folder.\n\nPress 'r' to retry, 'backspace' to go back, 'q' to quit."
 	default:
-		viewString = "Unknown state."
+		viewString = "I Don't Even Know What's Going On :("
 	}
 	return AppStyle.Render(viewString) // Wrap all views with AppStyle
 }

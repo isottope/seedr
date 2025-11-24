@@ -136,7 +136,7 @@ func (d itemDelegate) Render(w io.Writer, m list.Model, index int, listItem list
 	if isFiltered && index < len(m.VisibleItems()) {
 		matchedRunes = m.MatchesForItem(index)
 		unmatched := currentTitleStyle.Inline(true)
-		matched := unmatched.Inherit(FilterMatch)
+		matched := unmatched.Inherit(d.styles.FilterMatch)
 		title = lipgloss.StyleRunes(title, matchedRunes, matched, unmatched)
 	}
 

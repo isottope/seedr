@@ -27,6 +27,7 @@ var getCmd = &cobra.Command{
 		}
 
 		itemName := args[0]
+		DebugLog("Trying to Fetch ID for %s", itemName)
 		
 		// Ensure cache is populated
 		_, err := fetchObjectDetails()
@@ -40,6 +41,7 @@ var getCmd = &cobra.Command{
 			fmt.Printf("Error: Item '%s' not found in your Seedr account. Please check the name and try again.\n", itemName)
 			return
 		}
+		DebugLog("Trying to Fetch ID for %s - ID : %s", itemName, obj.id)
 		getDownloadURL(obj.isDir, obj.id)
 	},
 	ValidArgsFunction: completegetPrompt,
@@ -98,6 +100,7 @@ var objectNames []string                 // Global slice for auto-completion nam
 
 // getFolderContents recursively traverses Seedr folders and collects all files and subfolders.
 func getFolderContents(ctx context.Context, currentFolder *internal.SeedrListContentsResult, collectedObjects *[]SeedrObject) {
+	// Process immediate subfolders of the current folder
 	for _, subfolder := range currentFolder.Folders {
 		// Add subfolder itself
 		*collectedObjects = append(*collectedObjects, SeedrObject{isDir: true, name: subfolder.Name, id: fmt.Sprintf("%d", subfolder.ID)})
@@ -105,15 +108,16 @@ func getFolderContents(ctx context.Context, currentFolder *internal.SeedrListCon
 		// Recursively get contents of subfolder
 		subfolderData, err := internal.Account.ListContents(ctx, fmt.Sprintf("%d", subfolder.ID))
 		if err != nil {
-			internal.DebugLog("Error listing contents of folder %d: %v", subfolder.ID, err)
+			DebugLog("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
 			continue
 		}
 		getFolderContents(ctx, subfolderData, collectedObjects)
 	}
 
+	// Process immediate files in the current folder
 	for _, file := range currentFolder.Files {
-		// Use file.FileID for files
-		*collectedObjects = append(*collectedObjects, SeedrObject{isDir: false, name: file.Name, id: fmt.Sprintf("%d", file.FileID)})
+		// Use file.FolderFileID for files
+		*collectedObjects = append(*collectedObjects, SeedrObject{isDir: false, name: file.Name, id: fmt.Sprintf("%d", file.FolderFileID)})
 	}
 }
 
@@ -131,12 +135,16 @@ func fetchObjectDetails() ([]string, error) {
 	}
 
 	var collectedObjects []SeedrObject
+
 	// Process immediate subfolders of the root
 	for _, subfolder := range rootData.Folders {
+		// Add subfolder itself
 		collectedObjects = append(collectedObjects, SeedrObject{isDir: true, name: subfolder.Name, id: fmt.Sprintf("%d", subfolder.ID)})
+		
+		// Recursively get contents of subfolder
 		subfolderData, err := internal.Account.ListContents(ctx, fmt.Sprintf("%d", subfolder.ID))
 		if err != nil {
-			internal.DebugLog("Error listing contents of folder %d: %v", subfolder.ID, err)
+			DebugLog("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
 			continue
 		}
 		getFolderContents(ctx, subfolderData, &collectedObjects) // Recursively add sub-contents
@@ -144,7 +152,7 @@ func fetchObjectDetails() ([]string, error) {
 
 	// Process immediate files in the root
 	for _, file := range rootData.Files {
-		collectedObjects = append(collectedObjects, SeedrObject{isDir: false, name: file.Name, id: fmt.Sprintf("%d", file.FileID)})
+		collectedObjects = append(collectedObjects, SeedrObject{isDir: false, name: file.Name, id: fmt.Sprintf("%d", file.FolderFileID)})
 	}
 
 	allSeedrObjects = make(map[string]SeedrObject)
