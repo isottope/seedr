@@ -13,12 +13,12 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"seedrcc/cmd"
-	"seedrcc/pkg/seedrcc"
+	"seedr/cmd"
+	"seedr/pkg/seedr"
 )
 
 // COMMANDS
-func fetchContents(client *seedrcc.Client, folderID string) tea.Cmd {
+func fetchContents(client *seedr.Client, folderID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -57,7 +57,7 @@ func fetchContents(client *seedrcc.Client, folderID string) tea.Cmd {
 		// Add files
 		for _, f := range contents.Files {
 			allItems = append(allItems, item{
-				id:       fmt.Sprintf("%d", f.FileID), // Use FileID for files
+				id:       fmt.Sprintf("%d", f.FolderID), // Use FileID for files
 				itemType: TypeFile,
 				title:    f.Name,
 				desc:     fmt.Sprintf("File | Size: %.2fGB | Last Update: %s", float64(f.Size)/(1024*1024*1024), func() string {
@@ -94,7 +94,7 @@ func fetchContents(client *seedrcc.Client, folderID string) tea.Cmd {
 	}
 }
 
-func cmdDownloadFile(client *seedrcc.Client, fileID string, fileName string) tea.Cmd {
+func cmdDownloadFile(client *seedr.Client, fileID string, fileName string) tea.Cmd {
 	return func() tea.Msg {
 		msgChan := make(chan tea.Msg)
 
@@ -160,7 +160,7 @@ func cmdDownloadFile(client *seedrcc.Client, fileID string, fileName string) tea
 	}
 }
 
-func cmdCopyURL(client *seedrcc.Client, fileID string) tea.Cmd {
+func cmdCopyURL(client *seedr.Client, fileID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -187,7 +187,7 @@ func cmdCopyURL(client *seedrcc.Client, fileID string) tea.Cmd {
 	}
 }
 
-func cmdOpenMPV(client *seedrcc.Client, fileID string) tea.Cmd {
+func cmdOpenMPV(client *seedr.Client, fileID string) tea.Cmd {
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -208,7 +208,7 @@ func cmdOpenMPV(client *seedrcc.Client, fileID string) tea.Cmd {
 	}
 }
 
-func cmdBatchDownloadFiles(client *seedrcc.Client, files []item) tea.Cmd {
+func cmdBatchDownloadFiles(client *seedr.Client, files []item) tea.Cmd {
 	return func() tea.Msg {
 		msgChan := make(chan tea.Msg)
 

@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"seedrcc/internal"
+	"seedr/internal"
 	"github.com/spf13/cobra"
 )
 

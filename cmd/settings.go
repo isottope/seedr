@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"seedrcc/internal" // Assuming internal is where Seedr client and models are
+	"seedr/internal" // Assuming internal is where Seedr client and models are
 	"github.com/spf13/cobra"
 )
 

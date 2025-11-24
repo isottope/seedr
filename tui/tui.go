@@ -3,17 +3,17 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time" // Import time package
 
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
-
-
-	"seedrcc/cmd" // For DebugLog
-	"seedrcc/pkg/seedrcc"
-
+	"seedr/cmd" // For DebugLog
+	"seedr/internal" // Import internal package
+	"seedr/pkg/seedr"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // appState describes the current state of the application.
@@ -27,6 +27,17 @@ const (
 	stateEmpty
 )
 
+type (
+	itemChosenMsg string
+	clearChosenMessageMsg struct{}
+)
+
+func clearChosenMessageAfter(d time.Duration) tea.Cmd {
+	return tea.Tick(d, func(t time.Time) tea.Msg {
+		return clearChosenMessageMsg{}
+	})
+}
+
 type model struct {
 	list            list.Model
 	spinner         spinner.Model
@@ -34,25 +45,27 @@ type model struct {
 	quitting        bool
 	state           appState
 	err             error
-	client          *seedrcc.Client
+	client          *seedr.Client
 	folderHistory   []string
 	currentFolderID string
 	contentCache    map[string]contentsMsg
 	markedFiles     map[string]item // Map to store marked files by their ID
 	currentFolderPath string // Stores the current folder's path in a Linux-like format
+	chosenMessage   string // New field to display messages below the title
 	keys            KeyMap
 }
 
-func newModel(client *seedrcc.Client) model {
+func newModel(client *seedr.Client) model {
 	s := spinner.New()
-
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("69"))
+	s.Spinner = spinner.Dot
 	myStyles := NewMyItemStyles() // From styles.go
 	itemDel := itemDelegate{styles: myStyles, keys: newDelegateKeyMap()} // Initialize delegate with keys
 
 	// Initialize the list component
 	l := list.New([]list.Item{}, itemDel, 0, 0)
-	l.Title = "SEEDR"
-	l.SetShowStatusBar(true)
+	l.Title = "Loading..." // Initial title
+	l.SetShowStatusBar(false) // Disable default status bar
 	l.SetFilteringEnabled(true)
 	l.KeyMap = DefaultKeyMap.KeyMap // Assign the embedded list.KeyMap from keys.go
 	l.Styles.Title = TitleStyle // Use TitleStyle from styles.go
@@ -63,13 +76,11 @@ func newModel(client *seedrcc.Client) model {
 			DefaultKeyMap.OpenMPV,
 			DefaultKeyMap.Mark,
 			DefaultKeyMap.Retry,
-			// List-fancy keys for AdditionalFullHelpKeys
 			DefaultKeyMap.ToggleSpinner,
 			DefaultKeyMap.ToggleTitleBar,
 			DefaultKeyMap.ToggleStatusBar,
 			DefaultKeyMap.TogglePagination,
 			DefaultKeyMap.ToggleHelpMenu,
-			// DefaultKeyMap.InsertItem, // Only if we want to retain this from list-fancy
 		}
 	}
 
@@ -84,6 +95,7 @@ func newModel(client *seedrcc.Client) model {
 		contentCache:    make(map[string]contentsMsg),
 		markedFiles:     make(map[string]item), // Initialize the map
 		currentFolderPath: "/",
+		chosenMessage:   "", // Initialize chosenMessage
 		keys:            DefaultKeyMap, // Assign the DefaultKeyMap from keys.go
 	}
 }
@@ -99,6 +111,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Calculate the height considering the appStyle padding
 		h, v := AppStyle.GetFrameSize() // Use AppStyle from styles.go
 		m.list.SetSize(msg.Width-h, msg.Height-v)
+		return m, nil
+
+	case itemChosenMsg:
+		m.chosenMessage = string(msg)
+		return m, clearChosenMessageAfter(2 * time.Second) // Clear message after 2 seconds
+
+	case clearChosenMessageMsg:
+		m.chosenMessage = ""
 		return m, nil
 
 	case tea.KeyMsg:
@@ -135,9 +155,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.currentFolderID = item.id
 					// Append new folder to path, ensuring it's always rooted
 					if m.currentFolderPath == "/" { // If currently at root, special handling for first folder
-						m.currentFolderPath = "/" + item.title + "/"
+						m.currentFolderPath = item.title
 					} else {
-						m.currentFolderPath = m.currentFolderPath + item.title + "/"
+						m.currentFolderPath = m.currentFolderPath + "/" + item.title
 					}
 				
 					if _, ok := m.contentCache[m.currentFolderID]; ok {
@@ -157,29 +177,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case key.Matches(msg, m.keys.Back):
-			if m.state == stateReady && len(m.folderHistory) > 1 { // Cannot go back from root (root is at index 0, so history length > 1 means there's a folder to go back from)
-				m.folderHistory = m.folderHistory[:len(m.folderHistory)-1] // Pop from history
-				m.currentFolderID = m.folderHistory[len(m.folderHistory)-1] // Set to new current
-				// Remove last segment from currentFolderPath
-				if m.currentFolderPath != "/" { // Don't modify root path
-					// Find the last "/" that is not at the end
-					tempPath := m.currentFolderPath[:len(m.currentFolderPath)-1] // Remove trailing slash
-					lastSlash := strings.LastIndex(tempPath, "/")
-					if lastSlash != -1 {
-						m.currentFolderPath = tempPath[:lastSlash+1]
+			if m.state == stateReady && len(m.folderHistory) > 1 {
+				internal.DebugLog("Back key pressed. Current Folder ID: %s, History: %v", m.currentFolderID, m.folderHistory)
+
+				// Pop from history
+				m.folderHistory = m.folderHistory[:len(m.folderHistory)-1]
+				prevFolderID := m.folderHistory[len(m.folderHistory)-1]
+
+				// Update current folder path
+				if m.currentFolderPath != "/" {
+					parts := strings.Split(m.currentFolderPath, "/")
+					if len(parts) > 1 {
+						// Reconstruct path by removing the last segment
+						m.currentFolderPath = strings.Join(parts[:len(parts)-1], "/")
+						if m.currentFolderPath == "" { // Handle case where path becomes empty string after split
+							m.currentFolderPath = "/"
+						}
 					} else {
-						m.currentFolderPath = "/" // Should fallback to root if logic somehow fails
+						m.currentFolderPath = "/" // Fallback to root if path logic somehow fails
 					}
 				}
+				internal.DebugLog("Going back to Folder ID: %s, Path: %s", prevFolderID, m.currentFolderPath)
 
-				if _, ok := m.contentCache[m.currentFolderID]; ok {
+				m.currentFolderID = prevFolderID // Set to new current
+				
+				if cachedContents, ok := m.contentCache[m.currentFolderID]; ok {
 					// Found in cache, use it immediately
 					m.state = stateReady
-					m.list.SetItems(m.contentCache[m.currentFolderID].items)
+					m.list.SetItems(cachedContents.items)
+					m.list.Title = "SEEDR" + " " + m.currentFolderPath // Always update title
+					m.list.Select(0) // Reset cursor to top
+					return m, nil
 				} else {
 					// Not in cache, fetch
 					m.state = stateLoading
-					m.list.Title = "SEEDR" + " " + m.currentFolderPath // Update title with current path
+					m.list.Title = "SEEDR" + " " + m.currentFolderPath // Always update title
 					m.list.Select(0) // Reset cursor to top when going back
 					return m, tea.Batch(m.spinner.Tick, fetchContents(m.client, m.currentFolderID))
 				}
@@ -242,7 +274,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, m.keys.CopyURL):
 			if m.state == stateReady {
 				if len(m.markedFiles) > 0 {
-					return m, m.list.NewStatusMessage("cannot copy download link when files are marked for batch operations.")
+					return m, m.list.NewStatusMessage(StatusMessageStyle("cannot copy download link when files are marked for batch operations"))
 				}
 				selectedItem := m.list.SelectedItem()
 				if selectedItem == nil {
@@ -251,13 +283,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				item := selectedItem.(item)
 				if item.itemType == TypeFile {
 					m.state = stateLoading // Show spinner
-					return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
+					return m, tea.Batch(m.spinner.Tick, m.list.NewStatusMessage(item.id))
+					// return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
 				}
 			}
 		case key.Matches(msg, m.keys.OpenMPV):
 			if m.state == stateReady {
 				if len(m.markedFiles) > 0 {
-					return m, m.list.NewStatusMessage("Cannot open with MPV when files are marked for batch operations.")
+					return m, m.list.NewStatusMessage(StatusMessageStyle("Cannot open with MPV when files are marked for batch operations"))
 				}
 				selectedItem := m.list.SelectedItem()
 				if selectedItem == nil {
@@ -400,7 +433,12 @@ func (m model) View() string {
 	case stateError:
 		viewString = fmt.Sprintf("Error: %v\n\nPress 'r' to retry, 'q' to quit.", m.err)
 	case stateReady:
-		viewString = m.list.View() // Rely on list.Model's View() for all content
+		var s strings.Builder
+		s.WriteString(m.list.View())
+		if m.chosenMessage != "" {
+			s.WriteString("\n" + StatusMessageStyle(m.chosenMessage))
+		}
+		viewString = s.String()
 	case stateEmpty:
 		viewString = "No contents Found in this Folder.\n\nPress 'r' to retry, 'backspace' to go back, 'q' to quit."
 	default:
@@ -410,7 +448,7 @@ func (m model) View() string {
 }
 
 // RunTUI is the exported function to start the TUI.
-func RunTUI(client *seedrcc.Client) error {
+func RunTUI(client *seedr.Client) error {
 	p := tea.NewProgram(newModel(client), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		return fmt.Errorf("error running program: %w", err)

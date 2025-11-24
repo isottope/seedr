@@ -65,8 +65,8 @@ func (d itemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 		switch {
 		case key.Matches(msg, d.keys.choose): // Use d.keys for choose
 			// Handle the choose action. In the main model, this means navigating into a folder or performing an action.
-			// Here, we just set a status message, similar to the list-fancy example.
-			return m.NewStatusMessage(StatusMessageStyle("You chose " + title))
+			// Send a custom message to the main model to display below the title.
+			return func() tea.Msg { return itemChosenMsg("You chose " + title) }
 
 		case key.Matches(msg, d.keys.remove): // Use d.keys for remove
 			// Handle the remove action. This is for deleting an item from the list.

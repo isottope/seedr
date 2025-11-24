@@ -7,20 +7,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"seedrcc/pkg/seedrcc"
+	"seedr/pkg/seedr"
 )
 
 // Account is the global Seedr client variable
-var Account *seedrcc.Client
+var Account *seedr.Client
 
-// SeedrAPIError is an alias for seedrcc.APIError to avoid direct dependency in cmd package
-type SeedrAPIError = seedrcc.APIError
+// SeedrAPIError is an alias for seedr.APIError to avoid direct dependency in cmd package
+type SeedrAPIError = seedr.APIError
 
-// SeedrListContentsResult is an alias for seedrcc.ListContentsResult
-type SeedrListContentsResult = seedrcc.ListContentsResult
+// SeedrListContentsResult is an alias for seedr.ListContentsResult
+type SeedrListContentsResult = seedr.ListContentsResult
 
-// SeedrUserSettings is an alias for seedrcc.UserSettings
-type SeedrUserSettings = seedrcc.UserSettings
+// SeedrUserSettings is an alias for seedr.UserSettings
+type SeedrUserSettings = seedr.UserSettings
 
 // DebugLog is a package-level variable to hold the debug logging function.
 // It is meant to be set by an external package (e.g., cmd) to route debug messages.
@@ -30,7 +30,7 @@ var DebugLog = func(format string, a ...interface{}) {}
 
 // onTokenRefresh is a global callback function for token refreshes.
 // It saves the new token to file.
-var onTokenRefresh = func(newToken *seedrcc.Token) {
+var onTokenRefresh = func(newToken *seedr.Token) {
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error getting user home directory for token refresh: %v\n", err)
@@ -70,7 +70,7 @@ func FetchSeedrAccessToken() error {
 		DebugLog("No token found. Initiating device authentication flow...")
 	
 	
-codes, err := seedrcc.GetDeviceCode(ctx)
+codes, err := seedr.GetDeviceCode(ctx)
 		if err != nil {
 			return fmt.Errorf("error getting device code: %w", err)
 		}
@@ -79,7 +79,7 @@ codes, err := seedrcc.GetDeviceCode(ctx)
 		fmt.Print("Press Enter after authorizing the device.")
 		bufio.NewReader(os.Stdin).ReadBytes('\n') // Wait for user to press Enter
 
-		client, err := seedrcc.FromDeviceCode(ctx, codes.DeviceCode, seedrcc.WithTokenRefreshCallback(onTokenRefresh))
+		client, err := seedr.FromDeviceCode(ctx, codes.DeviceCode, seedr.WithTokenRefreshCallback(onTokenRefresh))
 		if err != nil {
 			return fmt.Errorf("error creating client from device code: %w", err)
 		}
@@ -102,12 +102,12 @@ codes, err := seedrcc.GetDeviceCode(ctx)
 		if err != nil {
 			return fmt.Errorf("error reading token file: %w", err)
 		}
-		token, err := seedrcc.TokenFromJSON(string(tokenBytes))
+		token, err := seedr.TokenFromJSON(string(tokenBytes))
 		if err != nil {
 			return fmt.Errorf("error parsing token from JSON: %w", err)
 		}
 		// Create client from existing token
-		client := seedrcc.NewClient(token, seedrcc.WithTokenRefreshCallback(onTokenRefresh))
+		client := seedr.NewClient(token, seedr.WithTokenRefreshCallback(onTokenRefresh))
 		Account = client // Set the global client
 		return nil
 	}

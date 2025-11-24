@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"os"
 
-	"seedrcc/cmd"
-	"seedrcc/internal" // Import the internal package
-	"seedrcc/pkg/seedrcc"
-	"seedrcc/tui" // Import the new tui package
+	"seedr/cmd"
+	"seedr/internal" // Import the internal package
+	"seedr/pkg/seedr"
+	"seedr/tui" // Import the new tui package
 
 	"github.com/spf13/cobra"
 
 )
 
 // getSeedrSettings prints formatted account settings.
-func getSeedrSettings(data *seedrcc.UserSettings) {
+func getSeedrSettings(data *seedr.UserSettings) {
 	accountInfo := data.Account
 
 	fmt.Printf("Username: %s\n", accountInfo.Username)

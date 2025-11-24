@@ -1,4 +1,4 @@
-module seedrcc
+module seedr
 
 go 1.25.4
 

@@ -6,7 +6,7 @@ import (
 	"os" // Add os package for ReadFile
 	"strings"
 
-	"seedrcc/internal"
+	"seedr/internal"
 
 
 	"github.com/spf13/cobra"
@@ -22,12 +22,34 @@ You can provide a magnet link directly, a path to a local .torrent file,
 or a URL to a webpage to scan for torrents.
 
 Examples:
-  seedrcc add "magnet:?xt=urn:btih:..."
-  seedrcc add --file /path/to/my.torrent
-  seedrcc add --url "https://example.com/page-with-torrents" --folder "Movies"`,
+  seedr add "magnet:?xt=urn:btih:..."
+  seedr add --file /path/to/my.torrent
+  seedr add --url "https://example.com/page-with-torrents" --folder "Movies"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		DebugLog("Running add command...")
 		ctx := context.Background()
+
+		// --- Input validation ---
+		inputCount := 0
+		if len(args) == 1 { // Positional magnet link argument
+			inputCount++
+		}
+		if torrentFilePath != "" { // --file flag
+			inputCount++
+		}
+		if pageURL != "" { // --url flag
+			inputCount++
+		}
+
+		if inputCount == 0 {
+			fmt.Println("Please provide a magnet link, a .torrent file path (--file), or a URL to scan (--url).")
+			cmd.Help()
+			return
+		}
+		if inputCount > 1 {
+			fmt.Println("Error: Only one of a magnet link, --file, or --url can be provided at a time.")
+			return
+		}
 
 		var magnetLink *string
 		var torrentFileContent []byte
@@ -81,8 +103,8 @@ Examples:
 			magnetLink = &args[0]
 			DebugLog("Adding torrent from magnet link: %s", *magnetLink)
 		} else {
-			fmt.Println("Please provide a magnet link, a .torrent file path (--file), or a URL to scan (--url).")
-			cmd.Help()
+			// This else should ideally not be reached due to inputCount validation above
+			fmt.Println("Internal error: Unhandled input combination.")
 			return
 		}
 
@@ -136,12 +158,11 @@ func init() {
 
 	addCmd.Flags().StringVarP(&torrentFilePath, "file", "f", "", "Path to a local .torrent file")
 	addCmd.Flags().StringVarP(&pageURL, "url", "u", "", "URL to a webpage to scan for torrents")
-	addCmd.Flags().StringVarP(&targetFolderName, "folder", "d", "", "Name of the target folder in Seedr")
+	addCmd.Flags().StringVarP(&targetFolderName, "folder", "D", "", "Name of the target folder in Seedr")
 
 	// Mutually exclusive flags
 	addCmd.MarkFlagsMutuallyExclusive("file", "url")
-	addCmd.MarkFlagsMutuallyExclusive("file", "magnet-link") // Magnet link is the first arg
-	addCmd.MarkFlagsMutuallyExclusive("url", "magnet-link") // Magnet link is the first arg
+
 
 	// Add completion for --folder flag
 	addCmd.RegisterFlagCompletionFunc("folder", completeFolderPrompt)
