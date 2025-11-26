@@ -282,6 +282,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				item := selectedItem.(item)
 				if item.itemType == TypeFile {
+					cmd.DebugLog("CopyURL: Attempting to copy URL for file ID: %s", item.id)
 					m.state = stateLoading // Show spinner
 					return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
 				}
