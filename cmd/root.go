@@ -32,7 +32,7 @@ It allows you to add torrents, list your files, get download links, and more.`,
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		// If no subcommands are provided, launch the TUI.
-		if len(args) == 0 && !debugMode && StartTUI != nil { // Only launch TUI if no specific command, not in debug mode, and TUI function is set.
+		if len(args) == 0 && StartTUI != nil { // Only launch TUI if no specific command, not in debug mode, and TUI function is set.
 			StartTUI()
 		} else {
 			cmd.Help() // Show help if arguments are present but no command matched, or if debug mode is on.
