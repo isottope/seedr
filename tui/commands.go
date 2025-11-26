@@ -57,7 +57,7 @@ func fetchContents(client *seedr.Client, folderID string) tea.Cmd {
 		// Add files
 		for _, f := range contents.Files {
 			allItems = append(allItems, item{
-				id:       fmt.Sprintf("%d", f.FolderID), // Use FileID for files
+				id:       fmt.Sprintf("%d", f.FolderFileID), // Corrected: Use f.FolderFileID for file IDs
 				itemType: TypeFile,
 				title:    f.Name,
 				desc:     fmt.Sprintf("File | Size: %.2fGB | Last Update: %s", float64(f.Size)/(1024*1024*1024), func() string {
