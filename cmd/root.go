@@ -25,6 +25,13 @@ It allows you to add torrents, list your files, get download links, and more.`,
 		// This will run before any subcommand's Run or PreRun
 		// It ensures `internal.Account` is initialized before any command execution.
 		// DebugMode is already set by PersistentFlags().BoolVar
+
+		// Determine if TUI is being launched
+		isTUI := len(args) == 0 && StartTUI != nil
+
+		// Initialize the logger with the global DebugMode and TUI status
+		internal.Log = internal.NewLogger(DebugMode, isTUI)
+
 		if err := internal.FetchSeedrAccessToken(); err != nil {
 			return err // Return error to Cobra to stop execution
 		}
@@ -34,10 +41,9 @@ It allows you to add torrents, list your files, get download links, and more.`,
 		// If no subcommands are provided, launch the TUI.
 		isTUI := len(args) == 0 && StartTUI != nil
 		
-		// Initialize the global logger instance
-		internal.Log = internal.NewLogger(DebugMode, isTUI)
-
 		if isTUI { // Only launch TUI if no specific command and TUI function is set.
+			// The logger has already been initialized in PersistentPreRunE with isTUI set based on this condition.
+			// No need to re-initialize here, just call StartTUI.
 			StartTUI()
 		} else {
 			cmd.Help() // Show help if arguments are present but no command matched.
