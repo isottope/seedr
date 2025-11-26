@@ -283,8 +283,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				item := selectedItem.(item)
 				if item.itemType == TypeFile {
 					m.state = stateLoading // Show spinner
-					return m, tea.Batch(m.spinner.Tick, m.list.NewStatusMessage(item.id))
-					// return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
+					return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
 				}
 			}
 		case key.Matches(msg, m.keys.OpenMPV):
