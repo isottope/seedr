@@ -51,6 +51,7 @@ type model struct {
 	markedFiles     map[string]item // Map to store marked files by their ID
 	currentFolderPath string // Stores the current folder's path in a Linux-like format
 	chosenMessage   string // New field to display messages below the title
+	originalTitle   string // Stores the base title without the chosenMessage
 	keys            KeyMap
 }
 
@@ -63,7 +64,7 @@ func newModel(client *seedr.Client) model {
 
 	// Initialize the list component
 	l := list.New([]list.Item{}, itemDel, 0, 0)
-	l.Title = "Loading..." // Initial title
+	// l.Title is set by updateListTitle later
 	l.SetShowStatusBar(false) // Disable default status bar
 	l.SetFilteringEnabled(true)
 	l.KeyMap = DefaultKeyMap.KeyMap // Assign the embedded list.KeyMap from keys.go
@@ -83,7 +84,7 @@ func newModel(client *seedr.Client) model {
 		}
 	}
 
-	return model{
+	m := model{
 		list:            l,
 		spinner:         s,
 		progress:        progress.New(progress.WithDefaultGradient()), // Initialize progress model
@@ -97,6 +98,8 @@ func newModel(client *seedr.Client) model {
 		chosenMessage:   "", // Initialize chosenMessage
 		keys:            DefaultKeyMap, // Assign the DefaultKeyMap from keys.go
 	}
+	m.updateListTitle() // Set initial title
+	return m
 }
 
 func (m model) Init() tea.Cmd {
@@ -114,10 +117,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case itemChosenMsg:
 		m.chosenMessage = string(msg)
+		m.updateListTitle() // Update title with new message
 		return m, clearChosenMessageAfter(2 * time.Second) // Clear message after 2 seconds
 
 	case clearChosenMessageMsg:
 		m.chosenMessage = ""
+		m.updateListTitle() // Clear message from title
 		return m, nil
 
 	case tea.KeyMsg:
@@ -162,13 +167,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					if _, ok := m.contentCache[m.currentFolderID]; ok {
 						// Found in cache, use it immediately
 						m.state = stateReady
-						m.list.Title = "SEEDR" + " " + m.currentFolderPath // Update title with current path
+						m.updateListTitle() // Update title with current path
 						m.list.Select(0) // Reset cursor to top
 						return m, nil
 					} else {
 						// Not in cache, fetch
 						m.state = stateLoading
-						m.list.Title = "SEEDR" + " " + m.currentFolderPath // Update title with current path
+						m.updateListTitle() // Update title with current path
 						m.list.Select(0) // Reset cursor to top when entering a new folder
 						return m, tea.Batch(m.spinner.Tick, fetchContents(m.client, m.currentFolderID))
 					}
@@ -204,13 +209,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Found in cache, use it immediately
 					m.state = stateReady
 					m.list.SetItems(cachedContents.items)
-					m.list.Title = "SEEDR" + " " + m.currentFolderPath // Always update title
+					m.updateListTitle() // Always update title
 					m.list.Select(0) // Reset cursor to top
 					return m, nil
 				} else {
 					// Not in cache, fetch
 					m.state = stateLoading
-					m.list.Title = "SEEDR" + " " + m.currentFolderPath // Always update title
+					m.updateListTitle() // Always update title
 					m.list.Select(0) // Reset cursor to top when going back
 					return m, tea.Batch(m.spinner.Tick, fetchContents(m.client, m.currentFolderID))
 				}
@@ -345,7 +350,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateReady
 		m.list.SetItems(msg.items)
 		// Set title to current path, which is updated on enter/backspace
-		m.list.Title = m.currentFolderPath
+		// m.currentFolderPath is already updated when entering/going back to a folder
+		m.updateListTitle() // Update title using the helper
 		m.contentCache[m.currentFolderID] = msg // Cache the fetched contents
 		// If len(msg.items) == 0, emptyContentsMsg would have been returned instead
 		return m, nil
@@ -387,6 +393,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.state = stateReady // Return to ready state
 		m.err = nil
 		m.chosenMessage = string(msg) // Set the chosen message
+		m.updateListTitle() // Update title with new message
 		return m, clearChosenMessageAfter(2 * time.Second) // Clear message after 2 seconds
 	case clipboardErrorMsg:
 		m.state = stateError
@@ -454,4 +461,14 @@ func RunTUI(client *seedr.Client) error {
 		return fmt.Errorf("error running program: %w", err)
 	}
 	return nil
+}
+
+// updateListTitle constructs and sets the list's title based on current path and chosen message.
+func (m *model) updateListTitle() {
+	title := "SEEDR" + " " + m.currentFolderPath
+	if m.chosenMessage != "" {
+		m.list.Title = TitleStyle.Render(title) + "\n" + StatusMessageStyle(m.chosenMessage)
+	} else {
+		m.list.Title = title
+	}
 }
