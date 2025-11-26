@@ -29,12 +29,12 @@ var listCmd = &cobra.Command{
 	Short:   "List folders and files on Seedr",
 	Long:    `This command lists your torrents, folders, and files on Seedr.cc in a tree-like structure.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		DebugLog("Running list command...")
+		internal.Log.Debug("Running list command...")
 		ctx := context.Background()
 		
 		settings, err := internal.Account.GetSettings(ctx)
 		if err != nil {
-			DebugLog("Error getting username in listTorrentFolders: %v", err)
+			internal.Log.Debug("Error getting username in listTorrentFolders: %v", err)
 			fmt.Printf("%s\n", errorStyle.Render("Error getting username: "+err.Error()))
 			return
 		}
@@ -42,11 +42,11 @@ var listCmd = &cobra.Command{
 
 		rootData, err := internal.Account.ListContents(ctx, "0") // Root folder
 		if err != nil {
-			DebugLog("Error listing root contents in listTorrentFolders: %v", err)
+			internal.Log.Debug("Error listing root contents in listTorrentFolders: %v", err)
 			fmt.Printf("%s\n", errorStyle.Render("Error listing root contents: "+err.Error()))
 			return
 		}
-		DebugLog("listTorrentFolders found %d torrents (via rootData.Torrents)", len(rootData.Torrents))
+		internal.Log.Debug("listTorrentFolders found %d torrents (via rootData.Torrents)", len(rootData.Torrents))
 
 		// Print root entry
 		fmt.Printf("%s %s\n", 

@@ -14,7 +14,7 @@ var settingsCmd = &cobra.Command{
 	Short:   "Display Seedr account settings",
 	Long:    `This command fetches and displays your Seedr.cc account settings, including username, space usage, and bandwidth.`, 
 	Run: func(cmd *cobra.Command, args []string) {
-		DebugLog("Running settings command...")
+		internal.Log.Debug("Running settings command...")
 		ctx := context.Background()
 		settings, err := internal.Account.GetSettings(ctx)
 		if err != nil {

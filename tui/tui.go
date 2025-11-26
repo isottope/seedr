@@ -177,7 +177,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case key.Matches(msg, m.keys.Back):
 			if m.state == stateReady && len(m.folderHistory) > 1 {
-				internal.DebugLog("Back key pressed. Current Folder ID: %s, History: %v", m.currentFolderID, m.folderHistory)
+				internal.Log.Debug("Back key pressed. Current Folder ID: %s, History: %v", m.currentFolderID, m.folderHistory)
 
 				// Pop from history
 				m.folderHistory = m.folderHistory[:len(m.folderHistory)-1]
@@ -196,7 +196,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.currentFolderPath = "/" // Fallback to root if path logic somehow fails
 					}
 				}
-				internal.DebugLog("Going back to Folder ID: %s, Path: %s", prevFolderID, m.currentFolderPath)
+				internal.Log.Debug("Going back to Folder ID: %s, Path: %s", prevFolderID, m.currentFolderPath)
 
 				m.currentFolderID = prevFolderID // Set to new current
 				
@@ -281,7 +281,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				item := selectedItem.(item)
 				if item.itemType == TypeFile {
-					internal.DebugLog("CopyURL: Attempting to copy URL for file ID: %s", item.id)
+					internal.Log.Debug("CopyURL: Attempting to copy URL for file ID: %s", item.id)
 					m.state = stateLoading // Show spinner
 					return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
 				}
@@ -402,7 +402,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case progressMsg: // New: Handle progress updates
-		internal.DebugLog("Received progressMsg: %.2f", float64(msg)*100)
+		internal.Log.Debug("Received progressMsg: %.2f", float64(msg)*100)
 		var cmd tea.Cmd
 		var updatedProgressModel tea.Model
 		updatedProgressModel, cmd = m.progress.Update(msg)

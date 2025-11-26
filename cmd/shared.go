@@ -29,7 +29,7 @@ func GetFolderContents(ctx context.Context, currentFolder *internal.SeedrListCon
 		// Recursively get contents of subfolder
 		subfolderData, err := internal.Account.ListContents(ctx, fmt.Sprintf("%d", subfolder.ID))
 		if err != nil {
-			DebugLog("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
+			internal.Log.Debug("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
 			continue
 		}
 		GetFolderContents(ctx, subfolderData, collectedObjects)
@@ -65,7 +65,7 @@ func FetchObjectDetails() ([]string, error) {
 		// Recursively get contents of subfolder
 		subfolderData, err := internal.Account.ListContents(ctx, fmt.Sprintf("%d", subfolder.ID))
 		if err != nil {
-			DebugLog("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
+			internal.Log.Debug("Error listing contents of folder %d (%s): %v", subfolder.ID, subfolder.Name, err)
 			continue
 		}
 		GetFolderContents(ctx, subfolderData, &collectedObjects) // Recursively add sub-contents

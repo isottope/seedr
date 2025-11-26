@@ -14,7 +14,7 @@ var getCmd = &cobra.Command{
 	Short:   "Get download URL of files/folders",
 	Long:    `This command fetches and prints the download URL for a specified file or folder from your Seedr.cc account.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		DebugLog("Running get command...\n")
+		internal.Log.Debug("Running get command...\n")
 
 		if len(args) == 0 {
 			fmt.Println("Please specify the name of the file or folder you want to get the download URL for.")
@@ -27,7 +27,7 @@ var getCmd = &cobra.Command{
 		}
 
 		itemName := args[0]
-		DebugLog("Trying to Fetch ID for %s", itemName)
+		internal.Log.Debug("Trying to Fetch ID for %s", itemName)
 		
 		// Ensure cache is populated
 		_, err := FetchObjectDetails()
@@ -41,7 +41,7 @@ var getCmd = &cobra.Command{
 			fmt.Printf("Error: Item '%s' not found in your Seedr account. Please check the name and try again.\n", itemName)
 			return
 		}
-		DebugLog("Trying to Fetch ID for %s - ID : %s", itemName, obj.id)
+		internal.Log.Debug("Trying to Fetch ID for %s - ID : %s", itemName, obj.id)
 		getDownloadURL(obj.isDir, obj.id)
 	},
 	ValidArgsFunction: completegetPrompt,

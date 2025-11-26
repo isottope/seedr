@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 
-	"seedr/cmd"
+	"seedr/internal" // Added for internal.Log.Debug
 	"seedr/pkg/seedr"
 )
 
@@ -24,17 +24,17 @@ func fetchContents(client *seedr.Client, folderID string) tea.Cmd {
 		defer cancel()
 
 		if client == nil {
-			cmd.DebugLog("Seedr client is nil in fetchContents")
+			internal.Log.Debug("Seedr client is nil in fetchContents")
 			return errMsg{err: errors.New("Seedr client is not initialized")}
 		}
-		cmd.DebugLog("Seedr client is not nil in fetchContents. Fetching folderID: %s", folderID)
+		internal.Log.Debug("Seedr client is not nil in fetchContents. Fetching folderID: %s", folderID)
 
 		contents, err := client.ListContents(ctx, folderID) // Use ListContents for the given folderID
 		if err != nil {
-			cmd.DebugLog("client.ListContents error for folderID %s: %v", folderID, err)
+			internal.Log.Debug("client.ListContents error for folderID %s: %v", folderID, err)
 			return errMsg{err: fmt.Errorf("failed to fetch contents for folder %s: %w", folderID, err)}
 		}
-		cmd.DebugLog("client.ListContents returned %d folders, %d files, %d torrents for folderID %s",
+		internal.Log.Debug("client.ListContents returned %d folders, %d files, %d torrents for folderID %s",
 			len(contents.Folders), len(contents.Files), len(contents.Torrents), folderID)
 
 		var allItems []list.Item
@@ -85,11 +85,11 @@ func fetchContents(client *seedr.Client, folderID string) tea.Cmd {
 		}
 
 		if len(allItems) == 0 {
-			cmd.DebugLog("No items found (folders, files, or torrents) for folderID %s, returning emptyContentsMsg", folderID)
+			internal.Log.Debug("No items found (folders, files, or torrents) for folderID %s, returning emptyContentsMsg", folderID)
 			return emptyContentsMsg{} // Return new message type
 		}
 
-		cmd.DebugLog("Returning contentsMsg with %d items (folders, files, and torrents) for folderID %s", len(allItems), folderID)
+		internal.Log.Debug("Returning contentsMsg with %d items (folders, files, and torrents) for folderID %s", len(allItems), folderID)
 		return contentsMsg{items: allItems, currentFolderName: contents.Name}
 	}
 }
@@ -140,7 +140,7 @@ func cmdDownloadFile(client *seedr.Client, fileID string, fileName string) tea.C
 						return
 					}
 					downloadedBytes += int64(n)
-					cmd.DebugLog("Download progress: %.2f%%", float64(downloadedBytes)/float64(totalSize)*100)
+					internal.Log.Debug("Download progress: %.2f%%", float64(downloadedBytes)/float64(totalSize)*100)
 					msgChan <- progressMsg(float64(downloadedBytes) / float64(totalSize))
 				}
 				if readErr == io.EOF {
@@ -258,7 +258,7 @@ func cmdBatchDownloadFiles(client *seedr.Client, files []item) tea.Cmd {
 							break // Break inner loop, move to next file
 						}
 						downloadedBytes += int64(n)
-						cmd.DebugLog("Batch download progress for %s: %.2f%%", file.title, float64(downloadedBytes)/float64(totalSize)*100)
+						internal.Log.Debug("Batch download progress for %s: %.2f%%", file.title, float64(downloadedBytes)/float64(totalSize)*100)
 						msgChan <- progressMsg(float64(downloadedBytes) / float64(totalSize))
 					}
 					if readErr == io.EOF {

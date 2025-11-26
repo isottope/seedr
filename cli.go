@@ -50,19 +50,19 @@ func init() {
 		if internal.Account != nil {
 			internal.Account.Close()
 		}
+		if internal.Log != nil { // Close the logger file handle
+			internal.Log.Close()
+		}
 	})
 
 	// Assign the TUI start function to the cmd package variable
 	cmd.StartTUI = startTUI
-
-	// Assign the cmd package's DebugLog to the internal package's DebugLog
-	internal.DebugLog = cmd.DebugLog
 }
 
 // Function to start TUI. This will be called only if no commands or flags are passed.
 func startTUI() {
 	if err := tui.RunTUI(internal.Account); err != nil {
-		fmt.Fprintf(os.Stderr, "Error running TUI: %v\n", err)
+		internal.Log.Debug("Error running TUI: %v", err)
 		os.Exit(1)
 	}
 }

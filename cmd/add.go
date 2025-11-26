@@ -30,7 +30,7 @@ Examples:
   seedr add /path/to/my.torrent --td Movies
   seedr add "https://example.com/page-with-torrents"`,
 	Run: func(cmd *cobra.Command, args []string) {
-		DebugLog("Running add command...")
+		internal.Log.Debug("Running add command...")
 		ctx := context.Background()
 
 		if len(args) != 1 {
@@ -53,7 +53,7 @@ Examples:
 
 		if isMagnet {
 			magnetLink = &input
-			DebugLog("Detected input as magnet link: %s", *magnetLink)
+			internal.Log.Debug("Detected input as magnet link: %s", *magnetLink)
 		} else if strings.HasSuffix(strings.ToLower(input), ".torrent") {
 			// Handle .torrent file upload
 			fileBytes, err := os.ReadFile(input)
@@ -62,10 +62,10 @@ Examples:
 				return
 			}
 			torrentFileContent = fileBytes
-			DebugLog("Detected input as local torrent file: %s", input)
+			internal.Log.Debug("Detected input as local torrent file: %s", input)
 		} else {
 			// Assume it's a URL to scan
-			DebugLog("Detected input as URL to scan for torrents: %s", input)
+			internal.Log.Debug("Detected input as URL to scan for torrents: %s", input)
 			scanResult, err := internal.Account.ScanPage(ctx, input)
 			if err != nil {
 				fmt.Printf("Error scanning URL '%s': %v\n", input, err)
@@ -95,7 +95,7 @@ Examples:
 			}
 			selectedTorrent := scanResult.Torrents[selection-1]
 			magnetLink = &selectedTorrent.Magnet
-			DebugLog("Selected torrent from scan: %s", selectedTorrent.Title)
+			internal.Log.Debug("Selected torrent from scan: %s", selectedTorrent.Title)
 		}
 
 		// Determine target folder ID
@@ -112,7 +112,7 @@ Examples:
 				return
 			}
 			folderID = obj.id
-			DebugLog("Adding to directory: %s (ID: %s)", targetDirectoryName, folderID)
+			internal.Log.Debug("Adding to directory: %s (ID: %s)", targetDirectoryName, folderID)
 		}
 
 		addResult, err := internal.Account.AddTorrent(ctx, magnetLink, torrentFileContent, nil, folderID)

@@ -15,7 +15,7 @@ var rmCmd = &cobra.Command{
 	Long:    `This command deletes a specified file or folder from your Seedr.cc account using its name.`,
 
 	Run: func(cmd *cobra.Command, args []string) {
-		DebugLog("Running rm command...\n")
+		internal.Log.Debug("Running rm command...\n")
 
 		if len(args) == 0 {
 			fmt.Println("Please specify the name of the file or folder you want to remove.")
@@ -28,7 +28,7 @@ var rmCmd = &cobra.Command{
 		}
 
 		itemName := args[0]
-		DebugLog("Trying to Fetch ID for %s to remove", itemName)
+		internal.Log.Debug("Trying to Fetch ID for %s to remove", itemName)
 		
 		// Ensure cache is populated
 		_, err := FetchObjectDetails()
