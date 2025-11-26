@@ -386,7 +386,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case clipboardCompleteMsg:
 		m.state = stateReady // Return to ready state
 		m.err = nil
-		return m, m.list.NewStatusMessage(string(msg))
+		m.chosenMessage = string(msg) // Set the chosen message
+		return m, clearChosenMessageAfter(2 * time.Second) // Clear message after 2 seconds
 	case clipboardErrorMsg:
 		m.state = stateError
 		m.err = msg.err
