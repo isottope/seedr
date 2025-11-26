@@ -10,7 +10,6 @@ import (
 	"github.com/charmbracelet/bubbles/progress"
 	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea" // Corrected: Added alias 'tea'
-	"seedr/cmd" // For DebugLog
 	"seedr/internal" // Import internal package
 	"seedr/pkg/seedr"
 	"github.com/charmbracelet/lipgloss"
@@ -282,7 +281,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				item := selectedItem.(item)
 				if item.itemType == TypeFile {
-					cmd.DebugLog("CopyURL: Attempting to copy URL for file ID: %s", item.id)
+					internal.DebugLog("CopyURL: Attempting to copy URL for file ID: %s", item.id)
 					m.state = stateLoading // Show spinner
 					return m, tea.Batch(m.spinner.Tick, cmdCopyURL(m.client, item.id))
 				}
@@ -403,7 +402,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case progressMsg: // New: Handle progress updates
-		cmd.DebugLog("Received progressMsg: %.2f", float64(msg)*100)
+		internal.DebugLog("Received progressMsg: %.2f", float64(msg)*100)
 		var cmd tea.Cmd
 		var updatedProgressModel tea.Model
 		updatedProgressModel, cmd = m.progress.Update(msg)
