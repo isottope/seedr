@@ -3,7 +3,8 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os" // Add os package for ReadFile
+	"os"
+	"regexp" // Added for magnet link detection
 	"strings"
 
 	"seedr/internal"
@@ -14,71 +15,69 @@ import (
 
 // addCmd represents the add command
 var addCmd = &cobra.Command{
-	Use:     "add [magnet-link | --file <path> | --url <url>]",
+	Use:     "add <torrent-source>",
 	Aliases: []string{"a"},
-	Short:   "Add a torrent to Seedr (magnet, file, or scanned URL)",
+	Short:   "Add a torrent to Seedr (magnet link, .torrent file, or URL to scan)",
 	Long: `This command allows you to add a torrent to your Seedr.cc account.
-You can provide a magnet link directly, a path to a local .torrent file,
-or a URL to a webpage to scan for torrents.
+You can provide a magnet link, a path to a local .torrent file,
+or a URL to a webpage to scan for torrents. The command will automatically
+detect the type of input.
+
+The target directory can optionally be specified using the --td flag.
 
 Examples:
   seedr add "magnet:?xt=urn:btih:..."
-  seedr add --file /path/to/my.torrent
-  seedr add --url "https://example.com/page-with-torrents" --folder "Movies"`,
+  seedr add /path/to/my.torrent --td Movies
+  seedr add "https://example.com/page-with-torrents"`,
 	Run: func(cmd *cobra.Command, args []string) {
 		DebugLog("Running add command...")
 		ctx := context.Background()
 
-		// --- Input validation ---
-		inputCount := 0
-		if len(args) == 1 { // Positional magnet link argument
-			inputCount++
-		}
-		if torrentFilePath != "" { // --file flag
-			inputCount++
-		}
-		if pageURL != "" { // --url flag
-			inputCount++
-		}
-
-		if inputCount == 0 {
-			fmt.Println("Please provide a magnet link, a .torrent file path (--file), or a URL to scan (--url).")
+		if len(args) != 1 {
+			fmt.Println("Please provide a magnet link, a .torrent file path, or a URL to scan.")
 			cmd.Help()
 			return
 		}
-		if inputCount > 1 {
-			fmt.Println("Error: Only one of a magnet link, --file, or --url can be provided at a time.")
+
+		input := args[0]
+		var magnetLink *string
+		var torrentFileContent []byte
+		var err error
+
+		// Regex to detect magnet links
+		isMagnet, err := regexp.MatchString("^magnet:.*", input)
+		if err != nil {
+			fmt.Printf("Error checking magnet link regex: %v\n", err)
 			return
 		}
 
-		var magnetLink *string
-		var torrentFileContent []byte
-
-		// Determine input type
-		if torrentFilePath != "" {
+		if isMagnet {
+			magnetLink = &input
+			DebugLog("Detected input as magnet link: %s", *magnetLink)
+		} else if strings.HasSuffix(strings.ToLower(input), ".torrent") {
 			// Handle .torrent file upload
-			fileBytes, err := os.ReadFile(torrentFilePath)
+			fileBytes, err := os.ReadFile(input)
 			if err != nil {
-				fmt.Printf("Error reading torrent file '%s': %v\n", torrentFilePath, err)
+				fmt.Printf("Error reading torrent file '%s': %v\n", input, err)
 				return
 			}
 			torrentFileContent = fileBytes
-			DebugLog("Adding torrent from file: %s", torrentFilePath)
-		} else if pageURL != "" {
-			// Handle URL scan
-			DebugLog("Scanning URL for torrents: %s", pageURL)
-			scanResult, err := internal.Account.ScanPage(ctx, pageURL)
+			DebugLog("Detected input as local torrent file: %s", input)
+		} else {
+			// Assume it's a URL to scan
+			DebugLog("Detected input as URL to scan for torrents: %s", input)
+			scanResult, err := internal.Account.ScanPage(ctx, input)
 			if err != nil {
-				fmt.Printf("Error scanning URL '%s': %v\n", pageURL, err)
+				fmt.Printf("Error scanning URL '%s': %v\n", input, err)
 				return
 			}
 
 			if len(scanResult.Torrents) == 0 {
-				fmt.Printf("No torrents found on page '%s'.\n", pageURL)
+				fmt.Printf("No torrents found on page '%s'.\n", input)
 				return
 			}
 
-			// Simple TUI for selection (for now, just pick the first one or ask user)
+			// Simple TUI for selection
 			fmt.Println("Torrents found on page:")
 			for i, t := range scanResult.Torrents {
 				fmt.Printf("[%d] %s (Size: %s, Magnet: %s)\n", i+1, t.Title, internal.HumanReadableBytes(t.Size), t.Magnet)
@@ -97,34 +96,24 @@ Examples:
 			selectedTorrent := scanResult.Torrents[selection-1]
 			magnetLink = &selectedTorrent.Magnet
 			DebugLog("Selected torrent from scan: %s", selectedTorrent.Title)
-
-		} else if len(args) == 1 {
-			// Handle magnet link directly from args
-			magnetLink = &args[0]
-			DebugLog("Adding torrent from magnet link: %s", *magnetLink)
-		} else {
-			// This else should ideally not be reached due to inputCount validation above
-			fmt.Println("Internal error: Unhandled input combination.")
-			return
 		}
 
 		// Determine target folder ID
 		folderID := "-1" // Default to root
-		if targetFolderName != "" {
+		if targetDirectoryName != "" {
 			_, err := FetchObjectDetails() // Ensure cache is populated
 			if err != nil {
 				fmt.Printf("Error fetching Seedr objects for folder lookup: %v\n", err)
 				return
 			}
-			obj, ok := allSeedrObjects[targetFolderName]
+			obj, ok := allSeedrObjects[targetDirectoryName]
 			if !ok || !obj.isDir {
-				fmt.Printf("Error: Folder '%s' not found or is not a directory.\n", targetFolderName)
+				fmt.Printf("Error: Directory '%s' not found or is not a directory.\n", targetDirectoryName)
 				return
 			}
 			folderID = obj.id
-			DebugLog("Adding to folder: %s (ID: %s)", targetFolderName, folderID)
+			DebugLog("Adding to directory: %s (ID: %s)", targetDirectoryName, folderID)
 		}
-
 
 		addResult, err := internal.Account.AddTorrent(ctx, magnetLink, torrentFileContent, nil, folderID)
 		if err != nil {
@@ -148,24 +137,15 @@ Examples:
 }
 
 var (
-	torrentFilePath string
-	pageURL         string
-	targetFolderName string
+	targetDirectoryName string
 )
 
 func init() {
 	RootCmd.AddCommand(addCmd)
+	addCmd.Flags().StringVarP(&targetDirectoryName, "target-directory", "t", "", "Name of the target directory in Seedr (optional)")
 
-	addCmd.Flags().StringVarP(&torrentFilePath, "file", "f", "", "Path to a local .torrent file")
-	addCmd.Flags().StringVarP(&pageURL, "url", "u", "", "URL to a webpage to scan for torrents")
-	addCmd.Flags().StringVarP(&targetFolderName, "folder", "D", "", "Name of the target folder in Seedr")
-
-	// Mutually exclusive flags
-	addCmd.MarkFlagsMutuallyExclusive("file", "url")
-
-
-	// Add completion for --folder flag
-	addCmd.RegisterFlagCompletionFunc("folder", completeFolderPrompt)
+	// Add completion for --td flag
+	addCmd.RegisterFlagCompletionFunc("target-directory", completeFolderPrompt)
 }
 
 func completeFolderPrompt(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
